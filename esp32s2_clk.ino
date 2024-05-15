@@ -3,6 +3,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 #include <Adafruit_BME280.h>
+#include "Adafruit_LC709203F.h"
 #include <WiFi.h>
 #include "time.h"
 
@@ -11,6 +12,7 @@ Adafruit_BME280 bme; // use I2C interface
 Adafruit_Sensor *bme_temp = bme.getTemperatureSensor();
 Adafruit_Sensor *bme_pressure = bme.getPressureSensor();
 Adafruit_Sensor *bme_humidity = bme.getHumiditySensor();
+Adafruit_LC709203F lc;
 
 const char* ssid     = "notyourwifi";
 const char* password = "Santa77Cruz";
@@ -79,7 +81,7 @@ void setup() {
   display.display();
   WiFi.begin(ssid, password);
   delay(300);
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 3; i++)
   {
     delay(300);
     Serial.print(".");
@@ -93,26 +95,61 @@ void setup() {
     display.print(".");
     display.display();
   }
-  Serial.println("");
-  Serial.println("Connected");
-  display.println("");
-  display.println("Connected");
-  display.display();
-  delay(500);
+  Serial.println("\nConnected");
+  // display.println("\nConnected");
+  // display.display();
+  delay(300);
 
   /////////////////////// Temp Sensor Init ///////////////////////
   Serial.println("Initializing BME280...");
-  display.println("BME280 init...");
+  display.print("\nBME280 init");
+  for (int i = 0; i < 3; i++)
+  {
+    delay(300);
+    Serial.print(".");
+    display.print(".");
+    display.display();
+  }
   
   bme_temp->printSensorDetails();
   bme_pressure->printSensorDetails();
   bme_humidity->printSensorDetails();
 
+  /////////////////////// Fuel Gauge Init ///////////////////////
+  Serial.println("\nInitializing Fuel Gauge");
+  display.print("\nFuel gauge init");
+  for (int i = 0; i < 3; i++)
+  {
+    delay(300);
+    Serial.print(".");
+    display.print(".");
+    display.display();
+  }
+  pinMode(PIN_I2C_POWER, INPUT);
+  delay(10);
+  bool polarity = digitalRead(PIN_I2C_POWER);
+  pinMode(PIN_I2C_POWER, OUTPUT);
+  digitalWrite(PIN_I2C_POWER, !polarity);
+
+  if (!lc.begin()) {
+    Serial.println(F("Couldnt find Adafruit LC709203F?\nMake sure a battery is plugged in!"));
+    while (1) delay(10);
+  }
+  Serial.println(F("Found LC709203F"));
+  Serial.print("Version: 0x"); Serial.println(lc.getICversion(), HEX);
+
+  lc.setThermistorB(3950);
+  Serial.print("Thermistor B = "); Serial.println(lc.getThermistorB());
+
+  lc.setPackSize(LC709203F_APA_500MAH);
+
+  lc.setAlarmVoltage(3.6);
+
   /////////////////////// Time Init ///////////////////////
   Serial.print("Fetching time...");
-  display.print("Fetching time...");
+  display.print("\nFetching time...");
   display.display();
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 3; i++)
   {
     delay(300);
     Serial.print(".");
@@ -121,7 +158,7 @@ void setup() {
   }
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   printLocalTime();
-  delay(500);
+  delay(300);
 
   //disconnect WiFi as it's no longer needed
   WiFi.disconnect(true);
@@ -147,21 +184,27 @@ void loop() {
     case 0: 
       Serial.println("Infomation");
       Serial.print("Select = "); Serial.println(sel);
-
-      display.clearDisplay();
-      display.display();
-      display.setCursor(0,0);
-      display.setTextSize(2);
-      display.println("Info");
-      display.setCursor(0,20);
-      display.setTextSize(1);
-      //getBattInfo(battLevel);
-      display.print("Battery Level: "); display.println("xx %");
-      //readBME280();
-      display.print("Temperature: "); display.print("xx "); display.print((char)247); display.println("C"); // Char247 = degree symbol
-      display.print("Humidity: "); display.print("xx "); display.println("%");
-      display.print("Pressure: "); display.print("xx "); display.println("hPa");
-      display.display();
+      if (sel == 1) {
+        display.clearDisplay();
+        display.display();
+      }
+      else {
+        display.clearDisplay();
+        display.display();
+        display.setCursor(0,0);
+        display.setTextSize(2);
+        display.println("Info");
+        display.setCursor(0,20);
+        display.setTextSize(1);
+        // Battery info
+        display.print("Batt Voltage: "); display.print(lc.cellVoltage(), 2); display.println(" V");
+        display.print("Batt Level: "); display.print(lc.cellPercent(), 1); display.println(" %");
+        //readBME280();
+        display.print("Temperature: "); display.print("xx "); display.print((char)247); display.println("C"); // Char247 = degree symbol
+        display.print("Humidity: "); display.print("xx "); display.println("%");
+        display.print("Pressure: "); display.print("xx "); display.println("hPa");
+        display.display();
+      }
     break;
 
     case 1: 
